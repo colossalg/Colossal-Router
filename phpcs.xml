@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<ruleset name="Custom">
+    <description>PSR12, but without linelength check, or line endings assertion (this is handled by .gitattributes).</description>
+    <rule ref="PSR12">
+        <exclude name="Generic.Files.LineLength"/>
+        <exclude name="Generic.Files.LineEndings"/>
+    </rule>
+</ruleset>
