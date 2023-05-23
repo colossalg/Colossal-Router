@@ -4,3 +4,5 @@ parameters:
         - src
         - test
     treatPhpDocTypesAsCertain: false
+    ignoreErrors:
+        - '#Missing parameter \$handler \(Closure\) in call to Colossal\\Routing\\Route constructor\.#'

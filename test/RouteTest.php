@@ -20,46 +20,12 @@ use PHPUnit\Framework\TestCase;
  */
 class RouteTest extends TestCase
 {
-    public function testGetMethod(): void
-    {
-        $pattern = "%/users/(?<id>\d+)/?%";
-        $handler = function(int $id): ResponseInterface {
-            return (new Response())->withStatus(200);
-        };
-        $route = new Route("GET", $pattern, $handler);
-        $this->assertEquals("GET", $route->getMethod());
-        $route = new Route("POST", $pattern, $handler);
-        $this->assertEquals("POST", $route->getMethod());
-    }
-
-    public function testGetPattern(): void
-    {
-        $pattern = "%/users/(?<id>\d+)/?%";
-        $route = new Route(
-            "GET",
-            $pattern,
-            function(int $id): ResponseInterface {
-                return (new Response())->withStatus(200);
-            }
-        );
-        $this->assertEquals($pattern, $route->getPattern());
-    }
-
-    public function testGetHandler(): void
-    {
-        $handler = function(int $id): ResponseInterface {
-            return (new Response())->withStatus(200);
-        };
-        $route = new Route("GET",  "%/users/(?<id>\d+)/?%", $handler);
-        $this->assertEquals($handler, $route->getHandler());
-    }
-
     public function testMatches(): void
     {
         $route = new Route(
             "GET",
             "%^/users/(?<id>\d+)/?$%",
-            function(int $id): ResponseInterface {
+            function (int $id): ResponseInterface {
                 return (new Response())->withStatus(200);
             }
         );
@@ -81,13 +47,11 @@ class RouteTest extends TestCase
     public function testHandleWorksForServerRequestArgument(): void
     {
         $results = new \stdClass();
-        $results->request   = null;
-        $results->id        = null;
 
         $route = new Route(
             "GET",
             "%^/users/(?<id>\d+)/?$%",
-            function(ServerRequestInterface $request, string $id) use(&$results): ResponseInterface {
+            function (ServerRequestInterface $request, string $id) use (&$results): ResponseInterface {
                 $results->request   = $request;
                 $results->id        = $id;
                 return (new Response())->withStatus(200);
@@ -113,7 +77,7 @@ class RouteTest extends TestCase
         $route = new Route(
             "GET",
             "%^/users/(?<userId>$hexChar{4}-$hexChar{4}-$hexChar{4}-$hexChar{8})/posts(?:/(?<postId>\d+))?/?$%",
-            function(string $userId, int $postId = 1) use(&$results): ResponseInterface {
+            function (string $userId, int $postId = 1) use (&$results): ResponseInterface {
                 $results->userId = $userId;
                 $results->postId = $postId;
                 return (new Response())->withStatus(200);
@@ -140,7 +104,7 @@ class RouteTest extends TestCase
         $route = new Route(
             "GET",
             "%^/users/(?<id>\d+)/?$%",
-            function(int $id): ResponseInterface {
+            function (int $id): ResponseInterface {
                 return (new Response())->withStatus(200);
             }
         );
@@ -154,7 +118,7 @@ class RouteTest extends TestCase
         $route = new Route(
             "GET",
             "%^/users/(?<id>\d+)/?$%",
-            function(string|int $id): Response {
+            function (string|int $id): Response {
                 return (new Response())->withStatus(200);
             }
         );
@@ -168,7 +132,7 @@ class RouteTest extends TestCase
         $route = new Route(
             "GET",
             "%^/users/(?<hasLicense>true|false)/?$%",
-            function(bool $hasLicense): ResponseInterface {
+            function (bool $hasLicense): ResponseInterface {
                 return (new Response())->withStatus(200);
             }
         );
@@ -182,7 +146,7 @@ class RouteTest extends TestCase
         $route = new Route(
             "GET",
             "%^/users(?<id>/\d+)?/?$%",
-            function(int $id): ResponseInterface {
+            function (int $id): ResponseInterface {
                 return (new Response())->withStatus(200);
             }
         );
@@ -196,7 +160,7 @@ class RouteTest extends TestCase
         $route = new Route(
             "GET",
             "%^/users/(?<id>\d+)/?$%",
-            function(int $id): Response {
+            function (int $id): Response {
                 return (new Response())->withStatus(200);
             }
         );

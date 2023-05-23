@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace Colossal\Routing;
 
+use Attribute;
 use Psr\Http\Message\{
     ResponseInterface,
     ServerRequestInterface
 };
 use Psr\Http\Server\RequestHandlerInterface;
 
+#[Attribute(Attribute::TARGET_METHOD | Attribute::TARGET_FUNCTION)]
 class Route implements RequestHandlerInterface
 {
     /**
@@ -55,7 +57,7 @@ class Route implements RequestHandlerInterface
 
         $handlerParams = [];
         $reflectionFunction = new \ReflectionFunction($this->handler);
-        foreach($reflectionFunction->getParameters() as $param) {
+        foreach ($reflectionFunction->getParameters() as $param) {
             $paramType      = $param->getType();
             $paramName      = $param->getName();
             $paramPosition  = $param->getPosition();
@@ -80,7 +82,7 @@ class Route implements RequestHandlerInterface
                         "Parameter '$paramName' must be ServerRequestInterface, int or string, received '$paramType'."
                     )
                 };
-            } else if ($param->isDefaultValueAvailable()) {
+            } elseif ($param->isDefaultValueAvailable()) {
                 $handlerParams[$paramPosition] = $param->getDefaultValue();
             } else {
                 throw new \RuntimeException("Parameter '$paramName' is mandatory but was not provided.");
@@ -97,7 +99,7 @@ class Route implements RequestHandlerInterface
             throw new \RuntimeException("Return type must be 'ResponseInterface', instead was, '$returnType'.");
         }
 
-        return $reflectionFunction->invokeArgs($handlerParams);
+        return $reflectionFunction->invokeArgs($handlerParams); // @phpstan-ignore-line - Return type asserted above.
     }
 
     /**
@@ -116,15 +118,6 @@ class Route implements RequestHandlerInterface
     public function getPattern(): string
     {
         return $this->pattern;
-    }
-
-    /**
-     * Get this route's handler.
-     * @return \Closure $handler
-     */
-    public function getHandler(): \Closure
-    {
-        return $this->handler;
     }
 
     /**

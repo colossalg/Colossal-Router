@@ -9,10 +9,7 @@ use Colossal\Http\Message\{
     Stream
 };
 use Colossal\Routing\Route;
-use Psr\Http\Message\{
-    ResponseInterface,
-    ServerRequestInterface
-};
+use Psr\Http\Message\ResponseInterface;
 
 class DummyController
 {
@@ -30,12 +27,17 @@ class DummyController
     #[Route(method: "GET", pattern: "%^/users/(?<id>\d+)/?$%")]
     public function getUser(int $id): ResponseInterface
     {
+        $json = json_encode(self::USERS[$id]);
+        if ($json === false) {
+            throw new \RuntimeException("Call to json_encode() failed.");
+        }
+
         $resource = fopen("php://temp", "r+");
         if ($resource === false) {
             throw new \RuntimeException("Call to fopen() failed.");
         }
         $body = new Stream($resource);
-        $body->write(json_encode(self::USERS[$id]));
+        $body->write($json);
 
         return (new Response())
             ->withStatus(200)

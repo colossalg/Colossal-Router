@@ -44,7 +44,7 @@ class Router implements RequestHandlerInterface
      * Add a route using PCRE pattern matching to the router.
      * @param string $method    The HTTP method of the route.
      * @param string $pattern   The PCRE pattern of the route.
-     * @param \Closure $closure The handler of the route.
+     * @param \Closure $handler The handler of the route.
      */
     public function addRoute(string $method, string $pattern, \Closure $handler): void
     {
@@ -59,14 +59,14 @@ class Router implements RequestHandlerInterface
 
     /**
      * Add a controller to the router using the reflection API.
-     * 
+     *
      * All methods marked with the attribute #[Route(method: "<http-method>", pattern: "<pcre-pattern>")]
      * will be registered as individual routes (via addRoute) where:
      *      - <http-method>  (string) Is the HTTP method of the route.
      *      - <pcre-pattern> (string) Is the PCRE pattern of the route.
      *      - The method will be wrapped in a closure as the handler of the route.
-     * 
-     * @param string $controllerClassName The name of the controller class to register.
+     *
+     * @param class-string $controllerClassName The name of the controller class to register.
      * @throws \ReflectionException If the calls to the reflection API fail.
      * @throws \RuntimeException    If the handler closure can not be created.
      */
