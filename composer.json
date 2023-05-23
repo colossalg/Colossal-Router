@@ -23,5 +23,9 @@
         "phpstan/phpstan": "^1.9",
         "squizlabs/php_codesniffer": "^3.7"
     },
-    "require": {}
+    "require": {
+        "psr/http-message": "^1.0",
+        "psr/http-server-middleware": "^1.0",
+        "colossal/colossal-http-message": "^1.0"
+    }
 }
