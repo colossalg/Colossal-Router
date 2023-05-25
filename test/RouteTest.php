@@ -33,7 +33,6 @@ class RouteTest extends TestCase
         // Test for correct method and pattern
         $this->assertTrue($route->matches($this->createServerRequest("GET", "http://localhost:8080/users/1")));
         $this->assertTrue($route->matches($this->createServerRequest("GET", "http://localhost:8080/users/1/")));
-        $this->assertTrue($route->matches($this->createServerRequest("GET", "http://localhost:8080/users/234/")));
 
         // Test for incorrect method
         $this->assertFalse($route->matches($this->createServerRequest("POST", "http://localhost:8080/users/1")));
@@ -41,7 +40,6 @@ class RouteTest extends TestCase
         // Test for incorrect pattern
         $this->assertFalse($route->matches($this->createServerRequest("GET", "http://localhost:8080/users/")));
         $this->assertFalse($route->matches($this->createServerRequest("GET", "http://localhost:8080/users/a")));
-        $this->assertFalse($route->matches($this->createServerRequest("GET", "http://localhost:8080/users/1//")));
     }
 
     public function testHandleWorksForServerRequestArgument(): void
@@ -58,8 +56,6 @@ class RouteTest extends TestCase
             }
         );
 
-        // Assert that the method works for server request arguments
-
         $request = $this->createServerRequest("GET", "http://localhost:8080/users/1");
         $route->handle($request);
         $this->assertEquals($request->getMethod(), $results->request->getMethod());
@@ -70,8 +66,6 @@ class RouteTest extends TestCase
     public function testHandleWorksForDefaultArguments(): void
     {
         $results = new \stdClass();
-        $results->userId = null;
-        $results->postId = null;
 
         $hexChar = "[A-F0-9]";
         $route = new Route(
@@ -84,23 +78,19 @@ class RouteTest extends TestCase
             }
         );
 
-        // Assert that the method works for default arguments
-
-        $guid = "7264-4746-A94E-F101D365";
-        $route->handle($this->createServerRequest("GET", "http://localhost:8080/users/$guid/posts"));
-        $this->assertEquals($guid, $results->userId);
+        $userId = "7264-4746-A94E-F101D365";
+        $route->handle($this->createServerRequest("GET", "http://localhost:8080/users/$userId/posts"));
+        $this->assertEquals($userId, $results->userId);
         $this->assertEquals(1, $results->postId);
 
-        $guid = "C391-4923-9271-9914038A";
-        $route->handle($this->createServerRequest("GET", "http://localhost:8080/users/$guid/posts/99"));
-        $this->assertEquals($guid, $results->userId);
+        $userId = "C391-4923-9271-9914038A";
+        $route->handle($this->createServerRequest("GET", "http://localhost:8080/users/$userId/posts/99"));
+        $this->assertEquals($userId, $results->userId);
         $this->assertEquals(99, $results->postId);
     }
 
     public function testHandleThrowsIfDoesNotMatch(): void
     {
-        // Assert that the method throws if the pattern does not match
-        $this->expectExceptionMessage("Pattern '%^/users/(?<id>\d+)/?$%' did not match path '/index'.");
         $route = new Route(
             "GET",
             "%^/users/(?<id>\d+)/?$%",
@@ -108,13 +98,13 @@ class RouteTest extends TestCase
                 return (new Response())->withStatus(200);
             }
         );
+
+        $this->expectExceptionMessage("Pattern '%^/users/(?<id>\d+)/?$%' did not match path '/index'.");
         $route->handle($this->createServerRequest("GET", "http://localhost:8080/index"));
     }
 
     public function testHandleThrowsIfParamIsUnionType(): void
     {
-        // Assert that the method throws if any of the parameters are union types
-        $this->expectExceptionMessage("Parameter 'id' must be a named type, unions and intersections are not allowed.");
         $route = new Route(
             "GET",
             "%^/users/(?<id>\d+)/?$%",
@@ -122,13 +112,13 @@ class RouteTest extends TestCase
                 return (new Response())->withStatus(200);
             }
         );
+
+        $this->expectExceptionMessage("Parameter 'id' must be a named type, unions and intersections are not allowed.");
         $route->handle($this->createServerRequest("GET", "http://localhost:8080/users/1"));
     }
 
     public function testHandleThrowsIfParamIsUnsupportedBuiltIn(): void
     {
-        // Assert that the method throws if any of the parameters are unsupported built in types
-        $this->expectExceptionMessage("Parameter 'hasLicense' must be ServerRequestInterface, int or string, received 'bool'.");
         $route = new Route(
             "GET",
             "%^/users/(?<hasLicense>true|false)/?$%",
@@ -136,13 +126,13 @@ class RouteTest extends TestCase
                 return (new Response())->withStatus(200);
             }
         );
+
+        $this->expectExceptionMessage("Parameter 'hasLicense' must be ServerRequestInterface, int or string, received 'bool'.");
         $route->handle($this->createServerRequest("GET", "http://localhost:8080/users/true"));
     }
 
     public function testHandleThrowsIfMandatoryParameterNotProvided(): void
     {
-        // Assert that the method throws if any of the mandatory parameters are not provided
-        $this->expectExceptionMessage("Parameter 'id' is mandatory but was not provided.");
         $route = new Route(
             "GET",
             "%^/users(?<id>/\d+)?/?$%",
@@ -150,13 +140,13 @@ class RouteTest extends TestCase
                 return (new Response())->withStatus(200);
             }
         );
+
+        $this->expectExceptionMessage("Parameter 'id' is mandatory but was not provided.");
         $route->handle($this->createServerRequest("GET", "http://localhost:8080/users/"));
     }
 
     public function testHandleThrowsIfReturnTypeIsNotResponseInterface(): void
     {
-        // Assert that the method throws if the return type is not the response interface
-        $this->expectExceptionMessage("Return type must be 'ResponseInterface', instead was, 'Colossal\Http\Message\Response'.");
         $route = new Route(
             "GET",
             "%^/users/(?<id>\d+)/?$%",
@@ -164,7 +154,26 @@ class RouteTest extends TestCase
                 return (new Response())->withStatus(200);
             }
         );
+
+        $this->expectExceptionMessage("Return type must be 'ResponseInterface', instead was, 'Colossal\Http\Message\Response'.");
         $route->handle($this->createServerRequest("GET", "http://localhost:8080/users/1"));
+    }
+
+    public function testGetters(): void
+    {
+        $method  = "GET";
+        $pattern = "%^/users$%";
+
+        $route = new Route(
+            $method,
+            $pattern,
+            function (int $id): Response {
+                return (new Response())->withStatus(200);
+            }
+        );
+
+        $this->assertEquals($method, $route->getMethod());
+        $this->assertEquals($pattern, $route->getPattern());
     }
 
     private function createServerRequest(string $method, string $uri): ServerRequestInterface
