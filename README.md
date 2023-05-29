@@ -1,22 +1,87 @@
 # Colossal-Router
 A simple router implementation utilizing the PSR-15 standardized interfaces.
 
-## Function Routes
+## Creating the Router
 
 ```php
 
-// Creating the router is very simple.
+// ---------------------------------------------------------------------------- //
+// Creating the router is trivial, the constructor takes no arguments.          //
+// Configuration is performed via the method calls on an instance.              //
+// ---------------------------------------------------------------------------- //
+
+use Colossal\Routing\Router;
+use Psr\Http\Message\{  // These will always be required.
+    ResponseInterface,
+    ServerRequestInterface
+};
+
 $router = new Router();
 
-// -------------------------------------------------------------------------- //
-// We can directly register routes to the router. To do so we must specify    //
-//     - The HTTP method.                                                     //
-//     - The PCRE pattern.                                                    //
-//     - The handler for the route (must return ResponseInterface).           //
-// -------------------------------------------------------------------------- //
+// ...
 
-// This route will match any GET requests to /index or /index/
-$router->addRoute("GET",  "%^/index/?$%", function (): ResponseInterface {
+$router->handle($request);
+
+```
+
+## Adding Routes
+
+```php
+
+// ---------------------------------------------------------------------------- //
+// There are two methods to add routes:                                         //
+//      - Registering a closure     - via the Router::addRoute() method.        //
+//      - Registering a controller  - via the Router::addController() method.   //
+//                                                                              //
+// To register a closure the following must be specified:                       //
+//      - The HTTP method for the route.                                        //
+//      - The PCRE pattern for the route.                                       //
+//      - The handler for the route (this is the closure).                      //
+//                                                                              //
+// To register a controller, for each method intended to be registered          //
+// as an end-point, the following must specified via a Route attribute:         //
+//      - The HTTP method for the route.                                        //
+//      - The PCRE pattern for the route.                                       //
+//                                                                              //
+// Behind the scenes what will happen is that each method registered as an      //
+// end-point will be wrapped in a closure which will call the method on an      //
+// instance of the controller. The HTTP method, PCRE pattern, and the closure   //
+// together will then be registered via Router::addRoute().                     //
+//                                                                              //
+// All route handlers, whether they are created via a passed closure or a       //
+// closure created from a contoller's method, must return an instance of a      //
+// ResponseInterface (see the PSR-7 and PSR-15 standards for more info).        //
+// ---------------------------------------------------------------------------- //
+
+use Colossal\Routing\Router;
+use Psr\Http\Message\{
+    ResponseInterface,
+    ServerRequestInterface
+};
+
+final class PostController
+{
+    // This route will match any GET requests to /posts or /posts/
+    #[Route(method: "GET", pattern: "%^/posts/?$%")]
+    public function getPosts(): ResponseInterface
+    {
+        // Perform request, create response and return.
+        // ...
+    }
+
+    // This route will match any POST requests to /posts or /posts/
+    #[Route(method: "POST", pattern: "%^/posts/?$%")]
+    public function setPosts(): ResponseInterface
+    {
+        // Perform request, create response and return.
+        // ...
+    }
+}
+
+$router = new Router();
+
+// This route will match any GET requests to /queue or /queue/
+$router->addRoute("GET", "%^/queue/?$%", function (): ResponseInterface {
     // Perform request, create response and return.
     // ...
 });
@@ -27,131 +92,163 @@ $router->addRoute("POST", "%^/queue/?$%", function (): ResponseInterface {
     // ...
 });
 
-// -------------------------------------------------------------------------- //
-// Named capture groups may be used to provide arguments to the route handler.//
-// These capture groups must:                                                 //
-//     - Match the name of an argument in the route handler.                  //
-//     - Be convertible to the type of the corresponding argument.            //
-// -------------------------------------------------------------------------- //
-
-// This route will match any GET requests to /users/<id> or /users/<id>/
-// <id> will be converted to an int and passed to the handler.
-$router->addRoute("GET",  "%^/users/(?<id>[0-9]+)/?$%", function (int $id): ResponseInterface {
-    echo "User id = $id.";
-
-    // Perform request, create response and return.
-    // ...
-});
-
-// This route will match any POST requests to /users/<id> or /users/<id>/
-// <id> will be converted to an int and passed to the handler.
-$router->addRoute("POST", "%^/users/(?<id>[0-9]+)/?$%", function (int $id): ResponseInterface {
-    echo "User id = $id.";
-
-    // Perform request, create response and return.
-    // ...
-});
-
-// -------------------------------------------------------------------------- //
-// Besides the named captures, route handlers may also take an argument for   //
-// the ServerRequestInterface if they require any of the information required //
-// from the raw request.                                                      //
-// -------------------------------------------------------------------------- //
-
-// This route will match any GET requests to /posts/<id> or /posts/<id>/
-// <id> will be converted to an int and passed to the handler.
-$router->addRoute(
-    "GET", 
-    "%^/posts/(?<id>[0-9]+)/?$%",
-    function (ServerRequestInterface $request, int $id): ResponseInterface {
-        echo "User id = $id.";
-        var_dump($request->getHeaders());
-
-        // Perform request, create response and return.
-        // ...
-    }
-);
-```
-
-## Controller Routes
-
-```php
-
-// -------------------------------------------------------------------------- //
-// Behind the scenes what happens is that the router will examine all of the  //
-// methods which have the attribute:                                          //
-// #[Route(method: <http-method>, pattern: <pcre-pattern>)]                   //
-// This will then be converted in to a normal route where:                    //
-// - The route method is <http-method>.                                       //
-// - The route pattern is <pcre-pattern>.                                     //
-// - The route handler is a closure that:                                     //
-//      * Wrapping an instance of the controller class.                       //
-//      * Calls the method with any route parameters from capture groups.     //
-//      * Returns an instance of a ResponseInterface.                         //
-// -------------------------------------------------------------------------- //
-
-final class UserController
-{
-    // This route will match any GET requests to /users/<id> or /users/<id>/
-    // <id> will be converted to an int and passed to the method.
-    #[Route(method: "GET", pattern: "%^/users/(?<id>[0-9]+)/?$%")]
-    public function getUser(int $id): ResponseInterface
-    {
-        echo "User id = $id.";
-
-        // Perform request, create response and return.
-        // ...
-    }
-
-    // This route will match any POST requests to /users/<id> or /users/<id>/
-    // <id> will be converted to an int and passed to the method.
-    #[Route(method: "POST", pattern: "%^/users/(?<id>[0-9]+)/?$%")]
-    public function postUser(int $id): ResponseInterface
-    {
-        echo "User id = $id.";
-
-        // Perform request, create response and return.
-        // ...
-    }
-}
-
-$router = new Router();
-
 // Register the controller. All of the reflection magic happens behind the scenes.
 $router->addController(UserController::class);
 
-// Request is the ServerRequestInterface for the current request being handled.
-// The method and uri path are automatically sourced from the request.
+// ...
+
 $router->handle($request);
 
 ```
 
-## Middleware
+## Route Parameters
 
 ```php
-// -------------------------------------------------------------------------- //
-// Middleware may be registered with the router. If so, the middleware will   //
-// be used to process requests prior to delegating to the route handler for   //
-// the final handling of the request.                                         //
-//                                                                            //
-// E.g. the router will call the middleware's process method with the route   //
-// as the handler argument.                                                   //
-// -------------------------------------------------------------------------- //
+// ---------------------------------------------------------------------------- //
+// To provide routes with parameters:                                           //
+//      - Create a named capture group in the route's PCRE pattern.             // 
+//      - Add a parameter to the closure/controller method with:                //
+//          - An identical name to the capture group.                           //
+//          - One of the following types:                                       //
+//              - int                                                           //
+//              - string                                                        //
+//                                                                              //
+// There is one exception to above. The route may take an argument with type    //
+// ServerRequestInterface in addition to any other route parameters. In this    //
+// instance no capture group must be specified in the route's PCRE pattern.     //
+// ---------------------------------------------------------------------------- //
+
+use Colossal\Routing\Router;
+use Psr\Http\Message\{
+    ResponseInterface,
+    ServerRequestInterface
+};
+
+$router = new Router();
+
+// This route will match any GET requests to /users/<id> or /users/<id>/
+// <id> will be:
+//      - Extracted from the path.
+//      - Cast to an int.
+//      - Passed as the $id param of the route handler.
+$router->addRoute("GET", "%^/users/(?<id>\d+)/?$%", function (int $id): ResponseInterface {
+    echo "User id = $id";
+    // Perform request, create response and return.
+    // ...
+});
+
+// This route will match any POST requests to /users/<id>/profile or /users/<id>/profile/
+// $request will be the ServerRequestInterface that the router was dispatched to handle.
+// <id> will be:
+//      - Extracted from the path.
+//      - Cast to an int.
+//      - Passed as the $id param of the route handler.
+$router->addRoute(
+    "POST",
+    "%^/users/(?<id>\d+)/profile/?$%",
+    function (ServerRequestInterface $request, int $id): ResponseInterface {
+        echo "User id = $id";
+        // Perform request, create response and return.
+        // Ex. Parse JSON from the body of $request.
+        // ...
+    }
+);
+
+// ...
+
+$router->handle($request);
+
+```
+
+## Route Resolution
+
+```php
+// ---------------------------------------------------------------------------- //
+// The route resolution is simple; it's essentially first-come-first-served.    //
+//                                                                              //
+// The route's are examined in order that they were registered with the router  //
+// checking whether both:                                                       //
+//      - The route's HTTP method matches the request method.                   //
+//      - The route's PCRE pattern matches the request URI path.                //
+//                                                                              //
+// Once a route satisfying the above is found, the route's handler is called    //
+// for the request and the resulting response returned.                         //
+// ---------------------------------------------------------------------------- //
+
+use Colossal\Routing\Router;
+use Psr\Http\Message\{
+    ResponseInterface,
+    ServerRequestInterface
+};
+
+$router = new Router();
+
+$router->addRoute("GET", "%^/page/(A|B)$%, function (): ResponseInterface {
+    echo "Route 1";
+    // Perform request, create response and return.
+    // ...
+});
+$router->addRoute("GET", "%^/page/(B|C)$%, function (): ResponseInterface {
+    echo "Route 2";
+    // Perform request, create response and return.
+    // ...
+});
+$router->addRoute("GET", "%^/page/(C|D)$%, function (): ResponseInterface {
+    echo "Route 3";
+    // Perform request, create response and return.
+    // ...
+});
+
+// A GET request with path /page/B will echo "Route 1".
+// A GET request with path /page/C will echo "Route 2".
+
+// ...
+
+$router->handle($request);
+
+```
+
+## Router Middleware
+
+```php
+// ---------------------------------------------------------------------------- //
+// Middleware implementing the PSR-15 MiddlewareInterface may be registered     //
+// with the router. If so, once a request is matched to a route, rather than    //
+// directly invoking the route's handler, the middleware's process() method     //
+// will be invoked with the route passed as the $handler parameter.             //
+// ---------------------------------------------------------------------------- //
+
+use Colossal\Routing\Router;
+use Psr\Http\Message\{
+    ResponseInterface,
+    ServerRequestInterface
+};
+use Psr\Http\Server\{
+    MiddlewareInterface,
+    RequestHandlerInterface
+};
 
 final class AuthMiddleware implements MiddlewareInterface
 {
+    // ...
+    
+    public function process(
+        ServerRequestInterface $request,
+        RequesthandlerInterface $handler
+    ): ResponseInterace {
+        // Perform request, create response and return.
+        // ...
+    }
+    
     // ...
 }
 
 $router = new Router();
 
-// Register routes with the router.
-// ...
-
 $router->setMiddleware(new AuthMiddleware());
 
-// Request is the ServerRequestInterface for the current request being handled.
-// The method and uri path are automatically sourced from the request.
+// ...
+
 $router->handle($request);
 
 ```
