@@ -2,3 +2,4 @@
 /.vscode/
 /coverage/
 /vendor/
+*.bak
