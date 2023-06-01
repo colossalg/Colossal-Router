@@ -27,19 +27,27 @@ class Route implements RequestHandlerInterface
         $this->handler  = $handler;
     }
 
+    /**
+     * Get whether the route matches the server request routing path.
+     * @param ServerRequestInterface $request The server request to check.
+     * @return bool Whether the route mathces $request's routing path.
+     */
     public function matches(ServerRequestInterface $request): bool
     {
         return (
             $this->method === $request->getMethod() &&
-            boolval(preg_match($this->pattern, $request->getUri()->getPath()))
+            boolval(preg_match($this->pattern, Router::getServerRequestRoutingPath($request)))
         );
     }
 
+    /**
+     * @see RequestHandlerInterface::handle()
+     */
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
         // Parse the request params from the URI's path component.
 
-        $requestPath    = $request->getUri()->getPath();
+        $requestPath    = Router::getServerRequestRoutingPath($request);
         $requestParams  = [];
         if (
             !preg_match(

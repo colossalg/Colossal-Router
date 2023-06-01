@@ -160,54 +160,6 @@ $router->handle($request);
 
 ```
 
-## Route Resolution
-
-```php
-// ---------------------------------------------------------------------------- //
-// The route resolution is simple; it's essentially first-come-first-served.    //
-//                                                                              //
-// The route's are examined in order that they were registered with the router  //
-// checking whether both:                                                       //
-//      - The route's HTTP method matches the request method.                   //
-//      - The route's PCRE pattern matches the request URI path.                //
-//                                                                              //
-// Once a route satisfying the above is found, the route's handler is called    //
-// for the request and the resulting response returned.                         //
-// ---------------------------------------------------------------------------- //
-
-use Colossal\Routing\Router;
-use Psr\Http\Message\{
-    ResponseInterface,
-    ServerRequestInterface
-};
-
-$router = new Router();
-
-$router->addRoute("GET", "%^/page/(A|B)$%, function (): ResponseInterface {
-    echo "Route 1";
-    // Perform request, create response and return.
-    // ...
-});
-$router->addRoute("GET", "%^/page/(B|C)$%, function (): ResponseInterface {
-    echo "Route 2";
-    // Perform request, create response and return.
-    // ...
-});
-$router->addRoute("GET", "%^/page/(C|D)$%, function (): ResponseInterface {
-    echo "Route 3";
-    // Perform request, create response and return.
-    // ...
-});
-
-// A GET request with path /page/B will echo "Route 1".
-// A GET request with path /page/C will echo "Route 2".
-
-// ...
-
-$router->handle($request);
-
-```
-
 ## Router Middleware
 
 ```php
@@ -246,6 +198,129 @@ final class AuthMiddleware implements MiddlewareInterface
 $router = new Router();
 
 $router->setMiddleware(new AuthMiddleware());
+
+// ...
+
+$router->handle($request);
+
+```
+
+## Sub-Routers
+
+```php
+// ---------------------------------------------------------------------------- //
+// Sub-routers are supported. The primary driving force for this is the ability //
+// to register additional middleware on the sub-routers.                        //
+//                                                                              //
+// Ex.                                                                          //
+//      Router A (router-a)                                                     //
+//      - Middleware    (middleware-a)                                          //
+//      - Fixed start   ("")                                                    //
+//      - Routes        (/index, /about, etc...)                                //
+//      - Sub-routers   (router-b)                                              //
+//                                                                              //
+//      Router B (router-b)                                                     //
+//      - Middleware    (middleware-b)                                          //
+//      - Fixed start   ("/api")                                                //
+//      - Routes        ("/posts")                                              //
+//      - Sub-routers   (empty)                                                 //
+//                                                                              //
+// A request to /api/posts will match router-b and each of the following will   //
+// be executed in order:                                                        //
+//      - middleware-a                                                          //
+//      - middleware-b                                                          //
+//      - The handler for the /api/posts route.                                 //
+//                                                                              //
+// Any requests to /index, /about will only invoke middleware-a.                //
+//                                                                              //
+// Each sub-router should be assigned a "fixed start". The fixed start is what  //
+// indicates whether a sub-router should be transfered responsibility for the   //
+// routing of a request and its use is simple:                                  //
+//      - If the routing path starts with the fixed string, the sub-router is   //
+//        assumed to be able to handle the request.                             //
+//                                                                              //
+// The fixed start is not a PCRE, just an ordinary string.                      //
+// ---------------------------------------------------------------------------- //
+
+use Colossal\Routing\Router;
+use Psr\Http\Message\{
+    ResponseInterface,
+    ServerRequestInterface
+};
+
+$router = new Router();
+
+$subRouter = new Router();
+$subRouter->setFixedStart("/api");
+// Register routes with sub-router, etc...
+$router->addSubRouter($subRouterA);
+
+// ...
+```
+
+## Route Resolution
+
+```php
+// ---------------------------------------------------------------------------- //
+// When resolving a route:                                                      //
+//      - Sub-routers are examined first.                                       //
+//      - Routes are examined second.                                           //
+//                                                                              //
+// The sub-routers are examined descending order of the length of their fixed   //
+// start string. If the routing path matches the fixed start string of a sub-   //
+// router then that sub-router takes ownership of the request by:               //
+//      - Stripping it's fixed start string from the start of the request path. //
+//      - Checking its own sub-routers and routes for a match.                  //
+//                                                                              //
+// The routes are examined in order that they were registered with the router   //
+// checking whether both:                                                       //
+//      - The route's HTTP method matches the request method.                   //
+//      - The route's PCRE pattern matches the request URI path.                //
+//                                                                              //
+// Once a route satisfying the above is found, the route's handler is called    //
+// for the request and the resulting response returned.                         //
+// ---------------------------------------------------------------------------- //
+
+use Colossal\Routing\Router;
+use Psr\Http\Message\{
+    ResponseInterface,
+    ServerRequestInterface
+};
+
+$router = new Router();
+
+$subRouterA = new Router();
+$subRouterA->setFixedStart("/api");
+// Register routes with sub-router A, etc...
+$router->addSubRouter($subRouterA);
+
+$subRouterB = new Router();
+$subRouterB->setFixedStart("/api/posts");
+// Register routes with sub-router B, etc...
+$router->addSubRouter($subRouterB);
+
+$router->addRoute("GET", "%^/page/(A|B)$%, function (): ResponseInterface {
+    echo "Route 1";
+    // Perform request, create response and return.
+    // ...
+});
+$router->addRoute("GET", "%^/page/(B|C)$%, function (): ResponseInterface {
+    echo "Route 2";
+    // Perform request, create response and return.
+    // ...
+});
+$router->addRoute("GET", "%^/page/(C|D)$%, function (): ResponseInterface {
+    echo "Route 3";
+    // Perform request, create response and return.
+    // ...
+});
+
+// Any requests starting with /api but not /api/posts will be handled by sub-router A.
+// Any requests starting with /api/posts will be handled by sub-router B.
+
+// Any other posts will be checked against the routes of $router.
+// A GET request with path /page/B will echo "Route 1".
+// A GET request with path /page/C will echo "Route 2".
 
 // ...
 

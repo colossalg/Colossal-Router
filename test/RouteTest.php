@@ -17,6 +17,7 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * @covers \Colossal\Routing\Route
+ * @uses \Colossal\Routing\Router
  */
 class RouteTest extends TestCase
 {

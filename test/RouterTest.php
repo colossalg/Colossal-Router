@@ -23,9 +23,107 @@ use Psr\Http\Message\{
  * @covers \Colossal\Routing\Router
  * @uses \Colossal\Routing\Route
  * @uses \Colossal\Routing\Utilities\NullMiddleware
+ * @uses \Colossal\Routing\Utilities\Utilities
  */
 class RouterTest extends TestCase
 {
+    public function testSetMiddleware(): void
+    {
+        $finalRequest = null;
+
+        $router = new Router();
+        $router->addRoute("GET", "%^/users$%", function (ServerRequestInterface $request) use (&$finalRequest): ResponseInterface {
+            $finalRequest = $request;
+            return (new Response())->withStatus(200);
+        });
+
+        $router->setMiddleware(new DummyMiddleware("A", new DummyMiddleware("B", null)));
+
+        $router->handle($this->createServerRequest("GET", "http://localhost:8080/users"));
+
+        if ($finalRequest instanceof ServerRequestInterface) {
+            $this->assertTrue($finalRequest->getAttribute("A", false));
+            $this->assertTrue($finalRequest->getAttribute("B", false));
+        } else {
+            $this->fail();
+        }
+    }
+
+    public function testHandle(): void
+    {
+        $subRouterA = new Router();
+        $subRouterA->setFixedStart("/posts");
+        $subRouterA->addRoute("GET", "%^/?$%", function () use (&$routeName): ResponseInterface {
+            $routeName = "posts";
+            return (new Response())->withStatus(200);
+        });
+        $subRouterA->addRoute("GET", "%^/(?<id>\d+)/?$%", function (int $id) use (&$routeName): ResponseInterface {
+            $routeName = "posts-$id";
+            return (new Response())->withStatus(200);
+        });
+
+        $subRouterB = new Router();
+        $subRouterB->setFixedStart("/users");
+        $subRouterB->addRoute("GET", "%^/?$%", function () use (&$routeName): ResponseInterface {
+            $routeName = "users";
+            return (new Response())->withStatus(200);
+        });
+        $subRouterB->addRoute("GET", "%^/(?<id>\d+)/?$%", function (int $id) use (&$routeName): ResponseInterface {
+            $routeName = "users-$id";
+            return (new Response())->withStatus(200);
+        });
+
+        $router = new Router();
+        $router->addSubRouter($subRouterA);
+        $router->addSubRouter($subRouterB);
+        $router->addRoute("GET", "%^/index/?$%", function () use (&$routeName): ResponseInterface {
+            $routeName = "index";
+            return (new Response())->withStatus(200);
+        });
+
+        $router->handle($this->createServerRequest("GET", "http://localhost:8080/posts"));
+        $this->assertEquals("posts", $routeName);
+        $router->handle($this->createServerRequest("GET", "http://localhost:8080/posts/1"));
+        $this->assertEquals("posts-1", $routeName);
+        $router->handle($this->createServerRequest("GET", "http://localhost:8080/users"));
+        $this->assertEquals("users", $routeName);
+        $router->handle($this->createServerRequest("GET", "http://localhost:8080/users/1"));
+        $this->assertEquals("users-1", $routeName);
+        $router->handle($this->createServerRequest("GET", "http://localhost:8080/index"));
+        $this->assertEquals("index", $routeName);
+        $this->assertEquals(404, $router->handle($this->createServerRequest("GET", "http://localhost:8080/dummy"))->getStatusCode());
+    }
+
+    public function testHandleSubRouterPriorityIsInOrderOfDescendingFixedStartLength(): void
+    {
+        $routeName = "";
+
+        $subRouterA = new Router();
+        $subRouterA->setFixedStart("/");
+        $subRouterA->addRoute("GET", "%^/users/?$%", function () use (&$routeName): ResponseInterface {
+            $routeName = "A";
+            return (new Response())->withStatus(200);
+        });
+
+        $subRouterB = new Router();
+        $subRouterB->setFixedStart("/users/");
+        $subRouterB->addRoute("GET", "%^/?$%", function () use (&$routeName): ResponseInterface {
+            $routeName = "B";
+            return (new Response())->withStatus(200);
+        });
+
+        $router = new Router();
+        $router->addSubRouter($subRouterA);
+        $router->addSubRouter($subRouterB);
+
+        $request = $this->createServerRequest("GET", "http://localhost:8080/users");
+
+        $this->assertEquals(200, $subRouterA->handle($request)->getStatusCode());
+        $this->assertEquals(200, $subRouterB->handle($request)->getStatusCode());
+        $router->handle($request);
+        $this->assertEquals("B", $routeName);
+    }
+
     public function testHandleRoutePriorityIsInOrderAdded(): void
     {
         $routeName = "";
@@ -59,22 +157,21 @@ class RouterTest extends TestCase
         $this->assertEquals(404, $response->getStatusCode());
     }
 
-    public function testAddRoute(): void
+    public function testAddSubRouterThrowsIfSubRouterAddedTwice(): void
     {
-        $result = new \stdClass();
+        $fixedStart = "/users/";
+
+        $subRouterA = new Router();
+        $subRouterA->setFixedStart($fixedStart);
+
+        $subRouterB = new Router();
+        $subRouterB->setFixedStart($fixedStart);
 
         $router = new Router();
-        $router->addRoute("GET", "%^/users/(?<id>\d+)/?$%", function (int $id) use (&$result): ResponseInterface {
-            $result->id     = $id;
-            $result->fname  = "Angus";
-            $result->lname  = "Wylie";
-            return (new Response())->withStatus(200);
-        });
-        $router->handle($this->createServerRequest("GET", "http://localhost:8080/users/0"));
 
-        $this->assertEquals(0, $result->id);
-        $this->assertEquals("Angus", $result->fname);
-        $this->assertEquals("Wylie", $result->lname);
+        $this->expectExceptionMessage("Sub-Router with fixed start '/users' already exists.");
+        $router->addSubRouter($subRouterA);
+        $router->addSubRouter($subRouterB);
     }
 
     public function testAddRouteThrowsIfRouteAddedTwice(): void
@@ -100,28 +197,6 @@ class RouterTest extends TestCase
 
         $user1Response  = $router->handle($this->createServerRequest("GET", "http://localhost:8080/users/1"));
         $this->assertEquals(DummyController::USERS[1], json_decode($user1Response->getBody()->getContents(), associative: true));
-    }
-
-    public function testSetMiddleware(): void
-    {
-        $finalRequest = null;
-
-        $router = new Router();
-        $router->addRoute("GET", "%^/users$%", function (ServerRequestInterface $request) use (&$finalRequest): ResponseInterface {
-            $finalRequest = $request;
-            return (new Response())->withStatus(200);
-        });
-
-        $router->setMiddleware(new DummyMiddleware("A", new DummyMiddleware("B", null)));
-
-        $router->handle($this->createServerRequest("GET", "http://localhost:8080/users"));
-
-        if ($finalRequest instanceof ServerRequestInterface) {
-            $this->assertTrue($finalRequest->getAttribute("A", false));
-            $this->assertTrue($finalRequest->getAttribute("B", false));
-        } else {
-            $this->fail();
-        }
     }
 
     private function createServerRequest(string $method, string $uri): ServerRequestInterface
