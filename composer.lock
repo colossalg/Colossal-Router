@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "67dd6c1a7fd87635ae616639daa4a3ac",
+    "content-hash": "4fa2e16c204792e657d3f0513eb96d02",
     "packages": [
         {
             "name": "colossal/colossal-http-message",
@@ -1958,7 +1958,9 @@
     "stability-flags": [],
     "prefer-stable": false,
     "prefer-lowest": false,
-    "platform": [],
+    "platform": {
+        "php": "^8.0"
+    },
     "platform-dev": [],
     "plugin-api-version": "2.3.0"
 }
