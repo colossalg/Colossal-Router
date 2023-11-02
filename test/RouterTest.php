@@ -13,6 +13,7 @@ use Colossal\Routing\Dummy\{
     DummyController,
     DummyMiddleware
 };
+use Colossal\Routing\Utilities\MiddlewareQueue;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\{
     ResponseInterface,
@@ -22,6 +23,8 @@ use Psr\Http\Message\{
 /**
  * @covers \Colossal\Routing\Router
  * @uses \Colossal\Routing\Route
+ * @uses \Colossal\Routing\Utilities\MiddlewareQueue
+ * @uses \Colossal\Routing\Utilities\MiddlewareQueueRunner
  * @uses \Colossal\Routing\Utilities\NullMiddleware
  * @uses \Colossal\Routing\Utilities\Utilities
  */
@@ -37,7 +40,11 @@ class RouterTest extends TestCase
             return (new Response())->withStatus(200);
         });
 
-        $router->setMiddleware(new DummyMiddleware("A", new DummyMiddleware("B", null)));
+        $middlewareQueue = new MiddlewareQueue();
+        $middlewareQueue->enqueue(new DummyMiddleware("A"));
+        $middlewareQueue->enqueue(new DummyMiddleware("B"));
+
+        $router->setMiddleware($middlewareQueue);
 
         $router->handle($this->createServerRequest("GET", "http://localhost:8080/users"));
 

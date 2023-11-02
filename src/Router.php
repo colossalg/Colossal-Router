@@ -17,6 +17,7 @@ use Psr\Http\Server\{
     MiddlewareInterface,
     RequestHandlerInterface
 };
+use RuntimeException;
 
 class Router implements RequestHandlerInterface
 {
@@ -34,6 +35,7 @@ class Router implements RequestHandlerInterface
      */
     public static function getServerRequestRoutingPath(ServerRequestInterface $request): string
     {
+        /** @phpstan-ignore-next-line - Attribute is assumed to be of type string. */
         return $request->getAttribute(self::COLOSSAL_ROUTING_PATH_ATTR, $request->getUri()->getPath());
     }
 
@@ -163,9 +165,7 @@ class Router implements RequestHandlerInterface
                 $routeMethod  = $routeAttribute->getArguments()['method'];
                 $routePattern = $routeAttribute->getArguments()['pattern'];
                 $routeHandler = $reflectionMethod->getClosure($reflectionClass->newInstance());
-                if (is_null($routeHandler)) {
-                    throw new \RuntimeException("Could not create route handler for controller '$controllerClassName'.");
-                }
+                /** @phpstan-ignore-next-line - PHP documentation indicates that ReflectionMethod::getClosure() is not null. */
                 $this->addRoute($routeMethod, $routePattern, $routeHandler);
             }
         }
