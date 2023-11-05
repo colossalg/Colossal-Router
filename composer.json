@@ -27,6 +27,7 @@
         "php": "^8.0",
         "psr/http-server-handler": "^1.0",
         "psr/http-server-middleware": "^1.0",
-        "colossal/colossal-http-message": "^2.0"
+        "colossal/colossal-http-message": "^2.0",
+        "colossal/colossal-middleware-queue": "^1.0"
     }
 }

@@ -5,35 +5,57 @@ declare(strict_types=1);
 namespace Colossal\Routing;
 
 use Colossal\Http\Message\Response;
+use Colossal\MiddlewareQueue\MiddlewareQueue;
 use Colossal\Routing\Utilities\Utilities;
 use Psr\Http\Message\{
     ResponseInterface,
     ServerRequestInterface
 };
-use Psr\Http\Server\{
-    MiddlewareInterface,
-    RequestHandlerInterface
-};
+use Psr\Http\Server\MiddlewareInterface;
 use RuntimeException;
 
-class Router implements RequestHandlerInterface
+class Router
 {
-    private const COLOSSAL_ROUTING_PATH_ATTR = "CABD1AEE-5684-4FD4-BE5C-489717F45E99";
+    public const COLOSSAL_REQUEST_ROUTE_MATCH_PATH_ATTR = "COLOSSAL_REQUEST_ROUTE_MATCH_PATH_ATTR";
+
+    public const COLOSSAL_REQUEST_MIDDLEWARE_QUEUE_ATTR = "COLOSSAL_REQUEST_MIDDLEWARE_QUEUE_ATTR";
 
     /**
-     * Get the server request routing path.
+     * Get the server request route match path.
      *
      * This is either:
-     *      - The value specified in the attribute with name self::COLOSAL_ROUTER_PATH_ATTR if it exists.
+     *      - The value specified in the attribute with name self::COLOSSAL_REQUEST_ROUTE_MATCH_PATH_ATTR if it exists.
      *      - Otherwise, it will default to the path component of the server request URI.
      *
-     * @param ServerRequestInterface $request The server request to get the routing path for.
-     * @return string The server request routing path.
+     * @param ServerRequestInterface $request The server request to get the route match path for.
+     * @return string The server request route match path.
      */
-    public static function getServerRequestRoutingPath(ServerRequestInterface $request): string
+    public static function getServerRequestRouteMatchPath(ServerRequestInterface $request): string
     {
         /** @phpstan-ignore-next-line - Attribute is assumed to be of type string. */
-        return $request->getAttribute(self::COLOSSAL_ROUTING_PATH_ATTR, $request->getUri()->getPath());
+        return $request->getAttribute(
+            self::COLOSSAL_REQUEST_ROUTE_MATCH_PATH_ATTR,
+            $request->getUri()->getPath()
+        );
+    }
+
+    /**
+     * Get the server request middleware queue.
+     *
+     * This is either:
+     *      - The value specified in the attribute with name self::COLOSSAL_REQUEST_MIDDLEWARE_QUEUE_ATTR if it exist.
+     *      - Otherwise, it will default to a default constructed MiddlewareQueue.
+     *
+     * @param ServerRequestInterface $request The server request to get the middleware queue for.
+     * @return MiddlewareQueue The server request middleware queue.
+     */
+    public static function getServerRequestMiddlewareQueue(ServerRequestInterface $request): MiddlewareQueue
+    {
+        /** @phpstan-ignore-next-line - Attribute is assumed to be of type MiddlewareQueue. */
+        return $request->getAttribute(
+            self::COLOSSAL_REQUEST_MIDDLEWARE_QUEUE_ATTR,
+            new MiddlewareQueue()
+        );
     }
 
     /**
@@ -54,31 +76,28 @@ class Router implements RequestHandlerInterface
      */
     public function matches(ServerRequestInterface $request): bool
     {
-        return str_starts_with(self::getServerRequestRoutingPath($request), $this->fixedStart);
+        return str_starts_with(self::getServerRequestRouteMatchPath($request), $this->fixedStart);
     }
 
     /**
-     * @see RequestHandlerInterface::handle()
+     * Process a request.
+     *
+     * This does the following:
+     *      - Updates the request's route match path and middleware queue.
+     *      - Finds a matching sub-router or route and calls processRequest() on that (returning the result).
+     *      - If no matching sub-router or route exists return a 404 response.
+     *
+     * @param ServerRequestInterface $request The server request to process.
+     * @return ResponseInterface The response resulting from processing the request.
      */
-    public function handle(ServerRequestInterface $request): ResponseInterface
+    public function processRequest(ServerRequestInterface $request): ResponseInterface
     {
-        $request = $request->withAttribute(
-            self::COLOSSAL_ROUTING_PATH_ATTR,
-            Utilities::strRemovePrefix(
-                self::getServerRequestRoutingPath($request),
-                $this->fixedStart
-            )
-        );
+        $request = $this->getRequestWithUpdatedRouteMatchPath($request);
+        $request = $this->getRequestWithUpdatedMiddlewareQueue($request);
 
-        foreach ($this->subRouters as $subRouter) {
-            if ($subRouter->matches($request)) {
-                return $this->delegateHandling($request, $subRouter);
-            }
-        }
-
-        foreach ($this->routes as $route) {
-            if ($route->matches($request)) {
-                return $this->delegateHandling($request, $route);
+        foreach ([...$this->subRouters, ...$this->routes] as $routeOrRouter) {
+            if ($routeOrRouter->matches($request)) {
+                return $routeOrRouter->processRequest($request);
             }
         }
 
@@ -168,15 +187,30 @@ class Router implements RequestHandlerInterface
         }
     }
 
-    private function delegateHandling(
-        ServerRequestInterface $request,
-        RequestHandlerInterface $handler
-    ): ResponseInterface {
-        if (is_null($this->middleware)) {
-            return $handler->handle($request);
-        } else {
-            return $this->middleware->process($request, $handler);
+    /**
+     * Return a new request with this router's fixed start stripped from the route match path.
+     */
+    private function getRequestWithUpdatedRouteMatchPath(ServerRequestInterface $request): ServerRequestInterface
+    {
+        $newRouteMatchPath = Utilities::strRemovePrefix(
+            self::getServerRequestRouteMatchPath($request),
+            $this->fixedStart
+        );
+
+        return $request->withAttribute(self::COLOSSAL_REQUEST_ROUTE_MATCH_PATH_ATTR, $newRouteMatchPath);
+    }
+
+    /**
+     * Return a new request with this router's middleware enqueued on to the middleware queue.
+     */
+    private function getRequestWithUpdatedMiddlewareQueue(ServerRequestInterface $request): ServerRequestInterface
+    {
+        $newMiddlewareQueue = clone self::getServerRequestMiddlewareQueue($request);
+        if (!is_null($this->middleware)) {
+            $newMiddlewareQueue->enqueue($this->middleware);
         }
+
+        return $request->withAttribute(self::COLOSSAL_REQUEST_MIDDLEWARE_QUEUE_ATTR, $newMiddlewareQueue);
     }
 
     /**

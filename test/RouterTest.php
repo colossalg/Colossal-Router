@@ -26,28 +26,36 @@ use Psr\Http\Message\{
  */
 class RouterTest extends TestCase
 {
-    public function testSetMiddleware(): void
+    public function testMiddlewareOnlyExecutesWhenMatchingRouteExists(): void
     {
-        $finalRequest = null;
-
         $router = new Router();
-        $router->addRoute("GET", "%^/users$%", function (ServerRequestInterface $request) use (&$finalRequest): ResponseInterface {
-            $finalRequest = $request;
+        $router->addRoute("GET", "%^/users$%", function (ServerRequestInterface $request): ResponseInterface {
+            return (new Response())->withStatus(200);
+        });
+        $router->addRoute("GET", "%^/posts$%", function (ServerRequestInterface $request): ResponseInterface {
             return (new Response())->withStatus(200);
         });
 
-        $router->setMiddleware(new DummyMiddleware("Dummy"));
+        $dummyMiddleware = new DummyMiddleware();
 
-        $router->handle($this->createServerRequest("GET", "http://localhost:8080/users"));
+        $router->setMiddleware($dummyMiddleware);
 
-        if ($finalRequest instanceof ServerRequestInterface) {
-            $this->assertTrue($finalRequest->getAttribute("Dummy", false));
-        } else {
-            $this->fail();
+        $testCases = [
+            ["http://localhost:8080/users", true],
+            ["http://localhost:8080/users", true],
+            ["http://localhost:8080/api", false],
+        ];
+
+        foreach ($testCases as $testCase) {
+            $dummyMiddleware->wasExecuted = false;
+
+            $router->processRequest($this->createServerRequest("GET", $testCase[0]));
+
+            $this->assertEquals($testCase[1], $dummyMiddleware->wasExecuted);
         }
     }
 
-    public function testHandle(): void
+    public function testProcessRequest(): void
     {
         $subRouterA = new Router();
         $subRouterA->setFixedStart("/posts");
@@ -79,20 +87,20 @@ class RouterTest extends TestCase
             return (new Response())->withStatus(200);
         });
 
-        $router->handle($this->createServerRequest("GET", "http://localhost:8080/posts"));
+        $router->processRequest($this->createServerRequest("GET", "http://localhost:8080/posts"));
         $this->assertEquals("posts", $routeName);
-        $router->handle($this->createServerRequest("GET", "http://localhost:8080/posts/1"));
+        $router->processRequest($this->createServerRequest("GET", "http://localhost:8080/posts/1"));
         $this->assertEquals("posts-1", $routeName);
-        $router->handle($this->createServerRequest("GET", "http://localhost:8080/users"));
+        $router->processRequest($this->createServerRequest("GET", "http://localhost:8080/users"));
         $this->assertEquals("users", $routeName);
-        $router->handle($this->createServerRequest("GET", "http://localhost:8080/users/1"));
+        $router->processRequest($this->createServerRequest("GET", "http://localhost:8080/users/1"));
         $this->assertEquals("users-1", $routeName);
-        $router->handle($this->createServerRequest("GET", "http://localhost:8080/index"));
+        $router->processRequest($this->createServerRequest("GET", "http://localhost:8080/index"));
         $this->assertEquals("index", $routeName);
-        $this->assertEquals(404, $router->handle($this->createServerRequest("GET", "http://localhost:8080/dummy"))->getStatusCode());
+        $this->assertEquals(404, $router->processRequest($this->createServerRequest("GET", "http://localhost:8080/dummy"))->getStatusCode());
     }
 
-    public function testHandleSubRouterPriorityIsInOrderOfDescendingFixedStartLength(): void
+    public function testProcessRequestSubRouterPriorityIsInOrderOfDescendingFixedStartLength(): void
     {
         $routeName = "";
 
@@ -116,13 +124,13 @@ class RouterTest extends TestCase
 
         $request = $this->createServerRequest("GET", "http://localhost:8080/users");
 
-        $this->assertEquals(200, $subRouterA->handle($request)->getStatusCode());
-        $this->assertEquals(200, $subRouterB->handle($request)->getStatusCode());
-        $router->handle($request);
+        $this->assertEquals(200, $subRouterA->processRequest($request)->getStatusCode());
+        $this->assertEquals(200, $subRouterB->processRequest($request)->getStatusCode());
+        $router->processRequest($request);
         $this->assertEquals("B", $routeName);
     }
 
-    public function testHandleRoutePriorityIsInOrderAdded(): void
+    public function testProcessRequestRoutePriorityIsInOrderAdded(): void
     {
         $routeName = "";
 
@@ -140,17 +148,17 @@ class RouterTest extends TestCase
             return (new Response())->withStatus(200);
         });
 
-        $router->handle($this->createServerRequest("GET", "http://localhost:8080/users/2"));
+        $router->processRequest($this->createServerRequest("GET", "http://localhost:8080/users/2"));
         $this->assertEquals("A", $routeName);
-        $router->handle($this->createServerRequest("GET", "http://localhost:8080/users/3"));
+        $router->processRequest($this->createServerRequest("GET", "http://localhost:8080/users/3"));
         $this->assertEquals("B", $routeName);
     }
 
-    public function testHandleReturns404IfNoMatchingRouteExists(): void
+    public function testProcessRequestReturns404IfNoMatchingRouteExists(): void
     {
         $router = new Router();
 
-        $response = $router->handle($this->createServerRequest("GET", "http://localhost:8080/users/2"));
+        $response = $router->processRequest($this->createServerRequest("GET", "http://localhost:8080/users/2"));
 
         $this->assertEquals(404, $response->getStatusCode());
     }
@@ -190,10 +198,10 @@ class RouterTest extends TestCase
         $router = new Router();
         $router->addController(DummyController::class);
 
-        $user0Response  = $router->handle($this->createServerRequest("GET", "http://localhost:8080/users/0"));
+        $user0Response = $router->processRequest($this->createServerRequest("GET", "http://localhost:8080/users/0"));
         $this->assertEquals(DummyController::USERS[0], json_decode($user0Response->getBody()->getContents(), associative: true));
 
-        $user1Response  = $router->handle($this->createServerRequest("GET", "http://localhost:8080/users/1"));
+        $user1Response = $router->processRequest($this->createServerRequest("GET", "http://localhost:8080/users/1"));
         $this->assertEquals(DummyController::USERS[1], json_decode($user1Response->getBody()->getContents(), associative: true));
     }
 
