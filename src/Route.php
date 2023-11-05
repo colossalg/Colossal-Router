@@ -36,8 +36,25 @@ class Route implements RequestHandlerInterface
     {
         return (
             $this->method === $request->getMethod() &&
-            boolval(preg_match($this->pattern, Router::getServerRequestRoutingPath($request)))
+            boolval(preg_match($this->pattern, Router::getServerRequestRouteMatchPath($request)))
         );
+    }
+
+    /**
+     * Process a request.
+     *
+     * This will:
+     *      - Execute the middleware in the request's middleware queue.
+     *      - Execute the handler of this route.
+     *
+     * @param ServerRequestInterface $request The server request to process.
+     * @return ResponseInterface The response resulting from processing the request.
+     */
+    public function processRequest(ServerRequestInterface $request): ResponseInterface
+    {
+        $middlewareQueue = Router::getServerRequestMiddlewareQueue($request);
+
+        return $middlewareQueue->process($request, $this);
     }
 
     /**
@@ -47,7 +64,7 @@ class Route implements RequestHandlerInterface
     {
         // Parse the request params from the URI's path component.
 
-        $requestPath    = Router::getServerRequestRoutingPath($request);
+        $requestPath    = Router::getServerRequestRouteMatchPath($request);
         $requestParams  = [];
         if (
             !preg_match(

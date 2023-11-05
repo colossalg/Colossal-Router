@@ -9,6 +9,8 @@ use Colossal\Http\Message\{
     ServerRequest,
     Uri
 };
+use Colossal\MiddlewareQueue\MiddlewareQueue;
+use Colossal\Routing\Dummy\DummyMiddleware;
 use Psr\Http\Message\{
     ResponseInterface,
     ServerRequestInterface
@@ -41,6 +43,35 @@ class RouteTest extends TestCase
         // Test for incorrect pattern
         $this->assertFalse($route->matches($this->createServerRequest("GET", "http://localhost:8080/users/")));
         $this->assertFalse($route->matches($this->createServerRequest("GET", "http://localhost:8080/users/a")));
+    }
+
+    public function testProcessRequestExecutesMiddlewareQueue(): void
+    {
+        $dummyMiddlewareA = new DummyMiddleware();
+        $dummyMiddlewareB = new DummyMiddleware();
+
+        $middlewareQueue = new MiddlewareQueue();
+        $middlewareQueue->enqueue($dummyMiddlewareA);
+        $middlewareQueue->enqueue($dummyMiddlewareB);
+
+        $route = new Route(
+            "GET",
+            "%^/users/(?<id>\d+)/?$%",
+            function (ServerRequestInterface $request, string $id): ResponseInterface {
+                return (new Response())->withStatus(200);
+            }
+        );
+
+        $request = $this->createServerRequest("GET", "http://localhost:8080/users/1");
+        $request = $request->withAttribute(
+            Router::COLOSSAL_REQUEST_MIDDLEWARE_QUEUE_ATTR,
+            $middlewareQueue
+        );
+
+        $route->processRequest($request);
+
+        $this->assertTrue($dummyMiddlewareA->wasExecuted);
+        $this->assertTrue($dummyMiddlewareB->wasExecuted);
     }
 
     public function testHandleWorksForServerRequestArgument(): void

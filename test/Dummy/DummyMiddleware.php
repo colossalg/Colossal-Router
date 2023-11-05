@@ -16,26 +16,17 @@ use Psr\Http\Server\{
 class DummyMiddleware implements MiddlewareInterface
 {
     /**
-     * Constructor.
-     * @param string $name The name of this middleware.
-     */
-    public function __construct(string $name)
-    {
-        $this->name = $name;
-    }
-
-    /**
      * @see MiddlewareInterface::process()
      */
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
-        $request = $request->withAttribute($this->name, true);
+        $this->wasExecuted = true;
 
         return $handler->handle($request);
     }
 
     /**
-     * @var string The name of this middleware.
+     * @var bool Whether this middleware was executed.
      */
-    public string $name;
+    public bool $wasExecuted = false;
 }
