@@ -18,12 +18,10 @@ class DummyMiddleware implements MiddlewareInterface
     /**
      * Constructor.
      * @param string $name The name of this middleware.
-     * @param null|MiddlewareInterface $next The next middleware to pass the request to.
      */
-    public function __construct(string $name, null|MiddlewareInterface $next)
+    public function __construct(string $name)
     {
         $this->name = $name;
-        $this->next = $next;
     }
 
     /**
@@ -33,18 +31,11 @@ class DummyMiddleware implements MiddlewareInterface
     {
         $request = $request->withAttribute($this->name, true);
 
-        return !is_null($this->next)
-            ? $this->next->process($request, $handler)
-            : $handler->handle($request);
+        return $handler->handle($request);
     }
 
     /**
      * @var string The name of this middleware.
      */
     public string $name;
-
-    /**
-     * @var null|MiddlewareInterface The next middleware to pass the request to.
-     */
-    public null|MiddlewareInterface $next;
 }

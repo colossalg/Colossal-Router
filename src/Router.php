@@ -5,10 +5,7 @@ declare(strict_types=1);
 namespace Colossal\Routing;
 
 use Colossal\Http\Message\Response;
-use Colossal\Routing\Utilities\{
-    NullMiddleware,
-    Utilities
-};
+use Colossal\Routing\Utilities\Utilities;
 use Psr\Http\Message\{
     ResponseInterface,
     ServerRequestInterface
@@ -17,6 +14,7 @@ use Psr\Http\Server\{
     MiddlewareInterface,
     RequestHandlerInterface
 };
+use RuntimeException;
 
 class Router implements RequestHandlerInterface
 {
@@ -34,6 +32,7 @@ class Router implements RequestHandlerInterface
      */
     public static function getServerRequestRoutingPath(ServerRequestInterface $request): string
     {
+        /** @phpstan-ignore-next-line - Attribute is assumed to be of type string. */
         return $request->getAttribute(self::COLOSSAL_ROUTING_PATH_ATTR, $request->getUri()->getPath());
     }
 
@@ -42,7 +41,7 @@ class Router implements RequestHandlerInterface
      */
     public function __construct()
     {
-        $this->middleware   = new NullMiddleware();
+        $this->middleware   = null;
         $this->fixedStart   = "";
         $this->subRouters   = [];
         $this->routes       = [];
@@ -73,13 +72,13 @@ class Router implements RequestHandlerInterface
 
         foreach ($this->subRouters as $subRouter) {
             if ($subRouter->matches($request)) {
-                return $this->middleware->process($request, $subRouter);
+                return $this->delegateHandling($request, $subRouter);
             }
         }
 
         foreach ($this->routes as $route) {
             if ($route->matches($request)) {
-                return $this->middleware->process($request, $route);
+                return $this->delegateHandling($request, $route);
             }
         }
 
@@ -163,18 +162,27 @@ class Router implements RequestHandlerInterface
                 $routeMethod  = $routeAttribute->getArguments()['method'];
                 $routePattern = $routeAttribute->getArguments()['pattern'];
                 $routeHandler = $reflectionMethod->getClosure($reflectionClass->newInstance());
-                if (is_null($routeHandler)) {
-                    throw new \RuntimeException("Could not create route handler for controller '$controllerClassName'.");
-                }
+                /** @phpstan-ignore-next-line - PHP documentation indicates that ReflectionMethod::getClosure() is not null. */
                 $this->addRoute($routeMethod, $routePattern, $routeHandler);
             }
         }
     }
 
+    private function delegateHandling(
+        ServerRequestInterface $request,
+        RequestHandlerInterface $handler
+    ): ResponseInterface {
+        if (is_null($this->middleware)) {
+            return $handler->handle($request);
+        } else {
+            return $this->middleware->process($request, $handler);
+        }
+    }
+
     /**
-     * @var MiddlewareInterface The middleware for this router.
+     * @var null|MiddlewareInterface The middleware for this router.
      */
-    private MiddlewareInterface $middleware;
+    private null|MiddlewareInterface $middleware;
 
     /**
      * @var string The fixed start for this router's paths.
