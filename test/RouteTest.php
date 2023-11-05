@@ -54,12 +54,15 @@ class RouteTest extends TestCase
         $middlewareQueue->enqueue($dummyMiddlewareA);
         $middlewareQueue->enqueue($dummyMiddlewareB);
 
+        $dummyMiddlewareC = new DummyMiddleware();
+
         $route = new Route(
             "GET",
             "%^/users/(?<id>\d+)/?$%",
             function (ServerRequestInterface $request, string $id): ResponseInterface {
                 return (new Response())->withStatus(200);
-            }
+            },
+            $dummyMiddlewareC
         );
 
         $request = $this->createServerRequest("GET", "http://localhost:8080/users/1");
@@ -72,6 +75,7 @@ class RouteTest extends TestCase
 
         $this->assertTrue($dummyMiddlewareA->wasExecuted);
         $this->assertTrue($dummyMiddlewareB->wasExecuted);
+        $this->assertTrue($dummyMiddlewareC->wasExecuted);
     }
 
     public function testHandleWorksForServerRequestArgument(): void

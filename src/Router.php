@@ -148,16 +148,21 @@ class Router
      * @param string $method    The HTTP method  of the route.
      * @param string $pattern   The PCRE pattern of the route.
      * @param \Closure $handler The handler of the route.
+     * @param null|MiddlewareInterface $middleware The middleware of the route.
      */
-    public function addRoute(string $method, string $pattern, \Closure $handler): void
-    {
+    public function addRoute(
+        string $method,
+        string $pattern,
+        \Closure $handler,
+        null|MiddlewareInterface $middleware = null
+    ): void {
         foreach ($this->routes as $existingRoute) {
             if ($method === $existingRoute->getMethod() && $pattern === $existingRoute->getPattern()) {
                 throw new \RuntimeException("Route with method '$method', and pattern '$pattern' already exists.");
             }
         }
 
-        array_push($this->routes, new Route($method, $pattern, $handler));
+        array_push($this->routes, new Route($method, $pattern, $handler, $middleware));
     }
 
     /**
@@ -169,11 +174,12 @@ class Router
      *      - <pcre-pattern> (string) Is the PCRE pattern of the route.
      *      - The method will be wrapped in a closure as the handler of the route.
      *
-     * @param class-string $controllerClassName The name of the controller class to register.
+     * @param class-string $controllerClassName     The name of the controller class to register.
+     * @param null|MiddlewareInterface $middleware  The middleware to register for all controller routes.
      * @throws \ReflectionException If the calls to the reflection API fail.
      * @throws \RuntimeException    If the handler closure can not be created.
      */
-    public function addController(string $controllerClassName): void
+    public function addController(string $controllerClassName, null|MiddlewareInterface $middleware = null): void
     {
         $reflectionClass = new \ReflectionClass($controllerClassName);
         foreach ($reflectionClass->getMethods() as $reflectionMethod) {
@@ -182,7 +188,7 @@ class Router
                 $routePattern = $routeAttribute->getArguments()['pattern'];
                 $routeHandler = $reflectionMethod->getClosure($reflectionClass->newInstance());
                 /** @phpstan-ignore-next-line - PHP documentation indicates that ReflectionMethod::getClosure() is not null. */
-                $this->addRoute($routeMethod, $routePattern, $routeHandler);
+                $this->addRoute($routeMethod, $routePattern, $routeHandler, $middleware);
             }
         }
     }
