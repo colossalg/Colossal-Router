@@ -20,7 +20,7 @@ $router = new Router();
 
 // ...
 
-$router->handle($request);
+$router->processRequest($request);
 
 ```
 
@@ -97,7 +97,7 @@ $router->addController(UserController::class);
 
 // ...
 
-$router->handle($request);
+$router->processRequest($request);
 
 ```
 
@@ -156,7 +156,7 @@ $router->addRoute(
 
 // ...
 
-$router->handle($request);
+$router->processRequest($request);
 
 ```
 
@@ -165,9 +165,11 @@ $router->handle($request);
 ```php
 // ---------------------------------------------------------------------------- //
 // Middleware implementing the PSR-15 MiddlewareInterface may be registered     //
-// with the router. If so, once a request is matched to a route, rather than    //
-// directly invoking the route's handler, the middleware's process() method     //
-// will be invoked with the route passed as the $handler parameter.             //
+// with the router.                                                             //
+//                                                                              //
+// Middleware is only executed once a matching route is found. All middleware   //
+// of the routers comprising the path from the base router to the matching      //
+// route will be executed.                                                      //
 // ---------------------------------------------------------------------------- //
 
 use Colossal\Routing\Router;
@@ -201,7 +203,7 @@ $router->setMiddleware(new AuthMiddleware());
 
 // ...
 
-$router->handle($request);
+$router->processRequest($request);
 
 ```
 
@@ -324,7 +326,7 @@ $router->addRoute("GET", "%^/page/(C|D)$%, function (): ResponseInterface {
 
 // ...
 
-$router->handle($request);
+$router->processRequest($request);
 
 ```
 
