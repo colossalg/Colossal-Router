@@ -20,7 +20,7 @@ $router = new Router();
 
 // ...
 
-$router->handle($request);
+$router->processRequest($request);
 
 ```
 
@@ -97,7 +97,7 @@ $router->addController(UserController::class);
 
 // ...
 
-$router->handle($request);
+$router->processRequest($request);
 
 ```
 
@@ -156,7 +156,7 @@ $router->addRoute(
 
 // ...
 
-$router->handle($request);
+$router->processRequest($request);
 
 ```
 
@@ -201,7 +201,7 @@ $router->setMiddleware(new AuthMiddleware());
 
 // ...
 
-$router->handle($request);
+$router->processRequest($request);
 
 ```
 
@@ -324,7 +324,7 @@ $router->addRoute("GET", "%^/page/(C|D)$%, function (): ResponseInterface {
 
 // ...
 
-$router->handle($request);
+$router->processRequest($request);
 
 ```
 
