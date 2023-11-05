@@ -25,7 +25,6 @@ use Psr\Http\Message\{
  * @uses \Colossal\Routing\Route
  * @uses \Colossal\Routing\Utilities\MiddlewareQueue
  * @uses \Colossal\Routing\Utilities\MiddlewareQueueRunner
- * @uses \Colossal\Routing\Utilities\NullMiddleware
  * @uses \Colossal\Routing\Utilities\Utilities
  */
 class RouterTest extends TestCase

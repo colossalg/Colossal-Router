@@ -5,10 +5,7 @@ declare(strict_types=1);
 namespace Colossal\Routing;
 
 use Colossal\Http\Message\Response;
-use Colossal\Routing\Utilities\{
-    NullMiddleware,
-    Utilities
-};
+use Colossal\Routing\Utilities\Utilities;
 use Psr\Http\Message\{
     ResponseInterface,
     ServerRequestInterface
@@ -44,7 +41,7 @@ class Router implements RequestHandlerInterface
      */
     public function __construct()
     {
-        $this->middleware   = new NullMiddleware();
+        $this->middleware   = null;
         $this->fixedStart   = "";
         $this->subRouters   = [];
         $this->routes       = [];
@@ -75,13 +72,13 @@ class Router implements RequestHandlerInterface
 
         foreach ($this->subRouters as $subRouter) {
             if ($subRouter->matches($request)) {
-                return $this->middleware->process($request, $subRouter);
+                return $this->delegateHandling($request, $subRouter);
             }
         }
 
         foreach ($this->routes as $route) {
             if ($route->matches($request)) {
-                return $this->middleware->process($request, $route);
+                return $this->delegateHandling($request, $route);
             }
         }
 
@@ -171,10 +168,21 @@ class Router implements RequestHandlerInterface
         }
     }
 
+    private function delegateHandling(
+        ServerRequestInterface $request,
+        RequestHandlerInterface $handler
+    ): ResponseInterface {
+        if (is_null($this->middleware)) {
+            return $handler->handle($request);
+        } else {
+            return $this->middleware->process($request, $handler);
+        }
+    }
+
     /**
-     * @var MiddlewareInterface The middleware for this router.
+     * @var null|MiddlewareInterface The middleware for this router.
      */
-    private MiddlewareInterface $middleware;
+    private null|MiddlewareInterface $middleware;
 
     /**
      * @var string The fixed start for this router's paths.
