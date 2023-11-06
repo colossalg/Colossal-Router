@@ -33,6 +33,9 @@ $router->processRequest($request);
 //      - Registering a closure     - via the Router::addRoute() method.        //
 //      - Registering a controller  - via the Router::addController() method.   //
 //                                                                              //
+// (The optional middleware parameters of these methods are covered in the      //
+// middleware section below.)                                                   //
+//                                                                              //
 // To register a closure the following must be specified:                       //
 //      - The HTTP method for the route.                                        //
 //      - The PCRE pattern for the route.                                       //
@@ -51,6 +54,9 @@ $router->processRequest($request);
 // All route handlers, whether they are created via a passed closure or a       //
 // closure created from a contoller's method, must return an instance of a      //
 // ResponseInterface (see the PSR-7 and PSR-15 standards for more info).        //
+//                                                                              //
+// (The parameters of route handlers are covered in the route parameter section //
+// below.)                                                                      //
 // ---------------------------------------------------------------------------- //
 
 use Colossal\Routing\Router;
@@ -153,53 +159,6 @@ $router->addRoute(
         // ...
     }
 );
-
-// ...
-
-$router->processRequest($request);
-
-```
-
-## Router Middleware
-
-```php
-// ---------------------------------------------------------------------------- //
-// Middleware implementing the PSR-15 MiddlewareInterface may be registered     //
-// with the router.                                                             //
-//                                                                              //
-// Middleware is only executed once a matching route is found. All middleware   //
-// of the routers comprising the path from the base router to the matching      //
-// route will be executed.                                                      //
-// ---------------------------------------------------------------------------- //
-
-use Colossal\Routing\Router;
-use Psr\Http\Message\{
-    ResponseInterface,
-    ServerRequestInterface
-};
-use Psr\Http\Server\{
-    MiddlewareInterface,
-    RequestHandlerInterface
-};
-
-final class AuthMiddleware implements MiddlewareInterface
-{
-    // ...
-    
-    public function process(
-        ServerRequestInterface $request,
-        RequesthandlerInterface $handler
-    ): ResponseInterace {
-        // Perform request, create response and return.
-        // ...
-    }
-    
-    // ...
-}
-
-$router = new Router();
-
-$router->setMiddleware(new AuthMiddleware());
 
 // ...
 
@@ -325,6 +284,83 @@ $router->addRoute("GET", "%^/page/(C|D)$%, function (): ResponseInterface {
 // A GET request with path /page/C will echo "Route 2".
 
 // ...
+
+$router->processRequest($request);
+
+```
+
+## Middleware
+
+```php
+// ---------------------------------------------------------------------------- //
+// Middleware implementing the PSR-15 MiddlewareInterface may be registered     //
+// with the router, routes and controllers.                                     //
+//                                                                              //
+// Middleware is only executed once a matching route is found. All middleware   //
+// of the routers comprising the path from the base router to the matching      //
+// route, as well as the route's middleware, will be executed.                  //
+// ---------------------------------------------------------------------------- //
+
+use Colossal\Routing\Router;
+use Psr\Http\Message\{
+    ResponseInterface,
+    ServerRequestInterface
+};
+use Psr\Http\Server\{
+    MiddlewareInterface,
+    RequestHandlerInterface
+};
+
+final class DummyMiddleware implements MiddlewareInterface
+{
+    // ...
+    
+    public function process(
+        ServerRequestInterface $request,
+        RequesthandlerInterface $handler
+    ): ResponseInterace {
+        // Perform request, create response and return.
+        // ...
+    }
+    
+    // ...
+}
+
+final class DummyController
+{
+    #[Route(method: "GET", pattern: "%^/dummy/?$%")]
+    public function getDummy(): ResponseInterface
+    {
+        // Perform request, create response and return.
+        // ...
+    }
+
+    #[Route(method: "POST", pattern: "%^/dummy/?$%")]
+    public function setDummy(): ResponseInterface
+    {
+        // Perform request, create response and return.
+        // ...
+    }
+}
+
+$router = new Router();
+
+// Register middleware for the router.
+$router->setMiddleware(new DummyMiddleware());
+
+// Register middleware for a single route.
+$router->addRoute(
+    "GET",
+    "%^/queue/?$%",
+    function (): ResponseInterface {
+        // Perform request, create response and return.
+        // ...
+    },
+    new DummyMiddleware()
+);
+
+// Register middleware for all routes of the controller.
+$router->addController(DummyController::class, new DummyMiddleware());
 
 $router->processRequest($request);
 
