@@ -9,7 +9,10 @@ use Psr\Http\Message\{
     ResponseInterface,
     ServerRequestInterface
 };
-use Psr\Http\Server\RequestHandlerInterface;
+use Psr\Http\Server\{
+    MiddlewareInterface,
+    RequestHandlerInterface
+};
 
 #[Attribute(Attribute::TARGET_METHOD | Attribute::TARGET_FUNCTION)]
 class Route implements RequestHandlerInterface
@@ -19,12 +22,18 @@ class Route implements RequestHandlerInterface
      * @param string $method    This route's method.
      * @param string $pattern   This route's pattern.
      * @param \Closure $handler This route's handler.
+     * @param null|MiddlewareInterface $middleware This route's middleware.
      */
-    public function __construct(string $method, string $pattern, \Closure $handler)
-    {
-        $this->method   = $method;
-        $this->pattern  = $pattern;
-        $this->handler  = $handler;
+    public function __construct(
+        string $method,
+        string $pattern,
+        \Closure $handler,
+        null|MiddlewareInterface $middleware = null
+    ) {
+        $this->method       = $method;
+        $this->pattern      = $pattern;
+        $this->handler      = $handler;
+        $this->middleware   = $middleware;
     }
 
     /**
@@ -45,6 +54,7 @@ class Route implements RequestHandlerInterface
      *
      * This will:
      *      - Execute the middleware in the request's middleware queue.
+     *      - Execute the middleware of this route.
      *      - Execute the handler of this route.
      *
      * @param ServerRequestInterface $request The server request to process.
@@ -53,6 +63,9 @@ class Route implements RequestHandlerInterface
     public function processRequest(ServerRequestInterface $request): ResponseInterface
     {
         $middlewareQueue = Router::getServerRequestMiddlewareQueue($request);
+        if (!is_null($this->middleware)) {
+            $middlewareQueue->enqueue($this->middleware);
+        }
 
         return $middlewareQueue->process($request, $this);
     }
@@ -159,4 +172,9 @@ class Route implements RequestHandlerInterface
      * @var \Closure $handler This route's handler.
      */
     private \Closure $handler;
+
+    /**
+     * @var null|MiddlewareInterface $middleware This route's middleware.
+     */
+    private null|MiddlewareInterface $middleware;
 }
